@@ -306,10 +306,9 @@ pub fn encode_with_nulls<T: FixedLengthEncoding>(
     nulls: &NullBuffer,
 ) {
     for ((value, is_valid), offset) in values.iter().zip(nulls.iter()).zip(offsets.iter_mut().skip(1)) {
-        let end_offset = *offset + 1 + T::ENCODED_LEN;
-        data[*offset] = if is_valid { 1 } else { 0 };
+        let end_offset = *offset + T::ENCODED_LEN;
         // if is_valid {
-        let to_write = &mut data[*offset + 1..end_offset];
+        let to_write = &mut data[*offset..end_offset];
         let mut encoded = (value).encode_with_null(is_valid);
         to_write.copy_from_slice(encoded.as_ref());
         // }

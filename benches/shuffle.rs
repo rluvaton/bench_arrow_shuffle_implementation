@@ -17,7 +17,7 @@ use arrow_row::SortField;
 fn run_benchmark(c: &mut Criterion) {
   let number_of_partitions = 1500;
   let batch_size = 8192;
-  let number_of_batches = 128;
+  let number_of_batches = 1;
 
   // this will create output batches of size ~700
 
@@ -30,61 +30,77 @@ fn run_benchmark(c: &mut Criterion) {
 
   let inputs_refs_vec: Vec<InputRef<'_>> = inputs.iter().map(|x| InputRef { batch: &x.batch, partitions: &x.partitions, indices_per_partition: &x.indices_per_partition }).collect();
   let inputs_refs_slice = inputs_refs_vec.as_slice();
+  //
+  // {
+  //   let mut group = c.benchmark_group("shuffle_take_approach");
+  //   group.bench_function("take_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  //   group.finish();
+  // }
+  //
+  // {
+  //   let mut group = c.benchmark_group("shuffle_row_format_approach");
+  //   group.bench_function("row_format_approach", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  //   group.finish();
+  // }
+  //
+  // {
+  //   let mut group = c.benchmark_group("shuffle_row_format_approach");
+  //   group.bench_function("row_format_approach going partition wise", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  //   group.finish();
+  // }
 
-  {
-    let mut group = c.benchmark_group("shuffle_take_approach");
-    group.bench_function("take_approach", |b| {
-      b.iter(|| {
-        let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-    group.finish();
-  }
+  for start in 0..inputs_refs_slice[0].batch.num_columns() {
+    for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
+      let project_indices = (start..end).collect::<Vec<_>>();
+      let projected_batch = inputs_refs_slice[0].batch.project(&project_indices).unwrap();
+      println!("start: {}, end: {}", start, end);
+      println!("projected batch columns types: {:?}", projected_batch.schema_ref());
+      let input = Input {
+        batch: projected_batch,
+        partitions: inputs_refs_slice[0].partitions.to_vec(),
+        indices_per_partition: inputs_refs_slice[0].indices_per_partition.to_vec(),
+      };
+      let input_ref = input.as_ref();
 
-  {
-    let mut group = c.benchmark_group("shuffle_row_format_approach");
-    group.bench_function("row_format_approach", |b| {
-      b.iter(|| {
-        let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-    group.finish();
+      test_combination_that_fail(&[input_ref], batch_size, number_of_partitions);
+    }
   }
-
-  {
-    let mut group = c.benchmark_group("shuffle_row_format_approach");
-    group.bench_function("row_format_approach going partition wise", |b| {
-      b.iter(|| {
-        let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-    group.finish();
-  }
-
-  {
-    let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
-    group.bench_function("optimized_row_format_approach", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-    group.finish();
-  }
-
-  {
-    let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
-    group.bench_function("optimized_row_format_approach going partition wise", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-    group.finish();
-  }
+  // {
+  //   let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
+  //   group.bench_function("optimized_row_format_approach", |b| {
+  //     b.iter(|| {
+  //       let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  //   group.finish();
+  // }
+  //
+  // {
+  //   let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
+  //   group.bench_function("optimized_row_format_approach going partition wise", |b| {
+  //     b.iter(|| {
+  //       let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  //   group.finish();
+  // }
 
 }
 
@@ -140,6 +156,12 @@ struct Input {
   indices_per_partition: Vec<UInt32Array>
 }
 
+impl Input {
+  fn as_ref<'a>(&'a self) -> InputRef<'a> {
+    InputRef { batch: &self.batch, partitions: &self.partitions, indices_per_partition: &self.indices_per_partition }
+  }
+}
+
 struct InputRef<'a> {
   batch: &'a RecordBatch,
   /// `partition[row_index] = partition_index`
@@ -190,8 +212,8 @@ fn row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_
   ).expect("should be able to create row converter");
 
   let mut partitions_sink = (0..number_of_partitions).map(|_|
-    // no real attempt to try to reserve
-    row_converter.empty_rows(0, 0)
+    // trying to reserve
+    row_converter.empty_rows(batch_size, batch_size * fields.len() * 50)
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
@@ -231,8 +253,8 @@ fn row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_size:
   ).expect("should be able to create row converter");
 
   let mut partitions_sink = (0..number_of_partitions).map(|_|
-    // no real attempt to try to reserve
-    row_converter.empty_rows(0, 0)
+    // trying to reserve
+    row_converter.empty_rows(batch_size, batch_size * fields.len() * 50)
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
@@ -265,6 +287,45 @@ fn row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_size:
   output
 }
 
+fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) {
+  let schema = input[0].batch.schema_ref();
+  let fields = schema.fields();
+  let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+    fields.clone(),
+  ).expect("should be able to create row converter");
+
+  let mut partitions_sink = (0..number_of_partitions).map(|_|
+    // trying to reserve
+    row_converter.empty_rows(batch_size, batch_size * fields.len() * 50)
+  ).collect::<Vec<_>>();
+
+  for input in input.iter() {
+    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
+
+    // TODO - reserve for each partition
+    for (index, partition) in input.partitions.iter().enumerate() {
+      let partition_output = unsafe { partitions_sink.get_unchecked_mut(*partition)};
+
+      let row = unsafe { rows.row_unchecked(index) };
+      partition_output.push(row);
+    }
+  }
+
+  let output = partitions_sink
+    .iter_mut()
+    .map(|partition_rows| {
+      let columns = row_converter.convert_rows(partition_rows.iter()).expect("should be able to convert");
+      let batch = RecordBatch::try_new(Arc::clone(schema), columns).expect("should be able to create a batch");
+
+      assert!(batch.num_rows() <= batch_size);
+      vec![
+        batch
+      ]
+    }).collect::<Vec<_>>();
+
+  // output
+}
+
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have
 fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
@@ -274,8 +335,8 @@ fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usiz
   ).expect("should be able to create row converter");
 
   let mut partitions_sink = (0..number_of_partitions).map(|_|
-    // no real attempt to try to reserve
-    row_converter.empty_rows(0, 0)
+    // trying to reserve
+    row_converter.empty_rows(batch_size, batch_size * fields.len() * 50)
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
@@ -316,8 +377,8 @@ fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], b
   ).expect("should be able to create row converter");
 
   let mut partitions_sink = (0..number_of_partitions).map(|_|
-    // no real attempt to try to reserve
-    row_converter.empty_rows(0, 0)
+    // trying to reserve
+    row_converter.empty_rows(batch_size, batch_size * fields.len() * 50)
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
