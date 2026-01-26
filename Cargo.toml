@@ -1,0 +1,33 @@
+[package]
+name = "bench_shuffle"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arrow = {version = "57.2.0", features = ["test_utils"]}
+arrow-array = "57.2.0"
+arrow-row = "57.2.0"
+arrow-select = "57.2.0"
+arrow-data = "57.2.0"
+arrow-schema = "57.2.0"
+arrow-buffer = "57.2.0"
+rand = "0.9.2"
+num-traits = "0.2.19"
+half = "2.7.1"
+
+[dev-dependencies]
+criterion = "0.8.1"
+
+[build-dependencies]
+patch-crate = "0.1"
+
+[package.metadata.patch]
+crates = ["arrow-buffer"]
+
+[patch.crates-io]
+arrow-buffer = { path="./target/patch/arrow-buffer-57.2.0" }
+
+[[bench]]
+name = "shuffle"
+harness = false
+required-features = []
