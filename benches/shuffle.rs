@@ -57,7 +57,7 @@ fn run_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("shuffle_row_format_approach");
     group.bench_function("row_format_approach going partition wise", |b| {
       b.iter(|| {
-        let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -79,7 +79,7 @@ fn run_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
     group.bench_function("optimized_row_format_approach going partition wise", |b| {
       b.iter(|| {
-        let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });

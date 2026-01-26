@@ -80,7 +80,8 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
+
     )));
 
     cols.push(array);
@@ -95,7 +96,8 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
+
     )));
 
     cols.push(array);
@@ -110,7 +112,8 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
+
     )));
 
     cols.push(array);
@@ -127,7 +130,8 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
+
     )));
 
     cols.push(array);
@@ -142,7 +146,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -159,7 +163,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -176,7 +180,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -193,7 +197,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -208,7 +212,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -224,7 +228,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
@@ -237,7 +241,7 @@ pub fn generate_batch(
     fields.push(Arc::new(Field::new(
       format!("col_{}", cols.len()),
       array.data_type().clone(),
-      nulls == 0.0,
+      nulls != 0.0,
     )));
 
     cols.push(array);
