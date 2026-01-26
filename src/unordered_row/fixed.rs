@@ -16,8 +16,9 @@
 // under the License.
 
 use super::null_sentinel;
+use arrow_array::array::PrimitiveArray;
 use arrow_array::builder::BufferBuilder;
-use arrow_array::{Array, ArrowPrimitiveType, BooleanArray, FixedSizeBinaryArray, PrimitiveArray};
+use arrow_array::{Array, ArrowPrimitiveType, BooleanArray, FixedSizeBinaryArray};
 use arrow_buffer::{
     ArrowNativeType, BooleanBuffer, Buffer, IntervalDayTime, IntervalMonthDayNano, MutableBuffer,
     NullBuffer, bit_util, i256,
@@ -54,9 +55,6 @@ pub trait FixedLengthEncoding: Copy {
             unimplemented!("encode_with_null not implemented for this type")
         }
     }
-    fn encode_with_null_u8(self, valid: u8) -> Self::Encoded {
-        self.encode_with_null(valid == 1)
-    }
 
     fn decode(encoded: Self::Encoded) -> Self;
 }
@@ -73,10 +71,6 @@ macro_rules! encode_signed {
             fn encode(self) -> [u8; $n] {
                 let mut b = self.to_be_bytes();
                 b
-            }
-
-            fn encode_with_null_u8(self, valid: u8) -> Self::Encoded {
-                (self * valid as $t).encode()
             }
 
             fn decode(mut encoded: Self::Encoded) -> Self {
@@ -134,11 +128,7 @@ macro_rules! encode_unsigned {
             }
 
             fn encode_with_null(self, is_valid: bool) -> Self::Encoded {
-                (self & (is_valid as $t)).encode()
-            }
-
-            fn encode_with_null_u8(self, valid: u8) -> Self::Encoded {
-                (self * valid as $t).encode()
+                (self * (is_valid as $t)).encode()
             }
 
             fn decode(encoded: Self::Encoded) -> Self {
@@ -274,7 +264,6 @@ where
     T::Native::ENCODED_LEN
 }
 
-
 /// Fixed width types are encoded as
 ///
 /// - 1 byte `0` if null or `1` if valid
@@ -287,31 +276,11 @@ pub fn encode<T: FixedLengthEncoding>(
 ) {
     for ((value, is_valid), offset) in values.iter().zip(nulls.iter()).zip(offsets.iter_mut().skip(1)) {
         let end_offset = *offset + T::ENCODED_LEN;
-        // if is_valid {
-        let to_write = &mut data[*offset..end_offset];
-        let mut encoded = (value).encode_with_null(is_valid);
-        to_write.copy_from_slice(encoded.as_ref());
-        // }
-        *offset = end_offset;
-    }
-}
-/// Fixed width types are encoded as
-///
-/// - 1 byte `0` if null or `1` if valid
-/// - bytes of [`FixedLengthEncoding`]
-pub fn encode_with_nulls<T: FixedLengthEncoding>(
-    data: &mut [u8],
-    offsets: &mut [usize],
-    values: &[T],
-    nulls: &NullBuffer,
-) {
-    for ((value, is_valid), offset) in values.iter().zip(nulls.iter()).zip(offsets.iter_mut().skip(1)) {
-        let end_offset = *offset + T::ENCODED_LEN;
-        // if is_valid {
-        let to_write = &mut data[*offset..end_offset];
-        let mut encoded = (value).encode_with_null(is_valid);
-        to_write.copy_from_slice(encoded.as_ref());
-        // }
+        if is_valid {
+            let to_write = &mut data[*offset..end_offset];
+            let mut encoded = (value).encode_with_null(is_valid);
+            to_write.copy_from_slice(encoded.as_ref());
+        }
         *offset = end_offset;
     }
 }
@@ -847,7 +816,7 @@ unsafe fn decode_fixed_four<T: FixedLengthEncoding + ArrowNativeType>(
 
     for row in rows {
         let size = std::mem::size_of::<T::Encoded>();
-        let i = split_off(row, size * 4 + 1);
+        let i = split_off(row, size * 4);
 
         {
             let value = T::Encoded::from_slice(&i[size * 0..size * 1]);

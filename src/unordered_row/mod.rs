@@ -935,30 +935,27 @@ impl UnorderedRowConverter {
         let total = lengths.extend_offsets(rows.offsets[write_offset], &mut rows.offsets);
         rows.buffer.resize(total, 0);
 
-        if columns.len() != 1 {
 
-
-            // Encode all nulls separately
-            {
-                let nulls = columns
-                  .iter()
-                  .zip(get_fields_should_encode_nulls_for(&self.fields))
-                  .filter(|(c, should_encode)| *should_encode)
-                  .map(|(c, _)| c.logical_nulls())
-                  .collect::<Vec<_>>();
-                let logical_nulls = nulls
-                  .iter()
-                  .map(|n| n.as_ref())
-                  .collect::<Vec<_>>();
-                encode_nulls_naive(
-                    &mut rows.buffer,
-                    &mut rows.offsets[write_offset..],
-                    logical_nulls,
-                    columns[0].len()
-                );
-            }
-
+        // Encode all nulls separately
+        {
+            let nulls = columns
+              .iter()
+              .zip(get_fields_should_encode_nulls_for(&self.fields))
+              .filter(|(c, should_encode)| *should_encode)
+              .map(|(c, _)| c.logical_nulls())
+              .collect::<Vec<_>>();
+            let logical_nulls = nulls
+              .iter()
+              .map(|n| n.as_ref())
+              .collect::<Vec<_>>();
+            encode_nulls_naive(
+                &mut rows.buffer,
+                &mut rows.offsets[write_offset..],
+                logical_nulls,
+                columns[0].len()
+            );
         }
+
         // grouping by same type
         enum ColumnChunk<'a> {
             ContinuesSamePrimitiveType {
@@ -975,199 +972,192 @@ impl UnorderedRowConverter {
             },
         }
 
-        // let columns_array = columns.iter().map(|col| col.as_ref()).collect::<Vec<_>>();
-        // let subslices = group_by(&columns_array, |col| (col.null_count() > 0, col.data_type().clone()));
-        //
-        // let mut encoders_iter = encoders.into_iter();
-        //
-        // let mut chunks: Vec<ColumnChunk<'_>> = vec![];
+        let columns_array = columns.iter().map(|col| col.as_ref()).collect::<Vec<_>>();
+        let subslices = group_by(&columns_array, |col| (col.null_count() > 0, col.data_type().clone()));
+
+        let mut encoders_iter = encoders.into_iter();
+
+        let mut chunks: Vec<ColumnChunk<'_>> = vec![];
 
 
-        // for slice in subslices {
-        //     // If all the same type
-        //     if slice[0].data_type().is_primitive() && slice.len() > 1 {
-        //         if slice[0].null_count() == 0 {
-        //             let encoders = encoders_iter.by_ref().take(slice.len()).collect::<Vec<_>>();
-        //             chunks.push(ColumnChunk::ContinuesSamePrimitiveType {
-        //                 encoders,
-        //                 arrays: slice,
-        //             });
-        //         } else {
-        //             let encoders = encoders_iter.by_ref().take(slice.len()).collect::<Vec<_>>();
-        //             chunks.push(ColumnChunk::ContinuesSamePrimitiveTypeWithNulls {
-        //                 encoders,
-        //                 arrays: slice,
-        //             });
-        //         }
-        //     } else {
-        //         slice.iter().for_each(|&array| {
-        //             chunks.push(ColumnChunk::SingleColumn {
-        //                 array,
-        //                 encoder: encoders_iter.next().unwrap(),
-        //             });
-        //         });
-        //     }
-        // }
-        // We encode a column at a time to minimise dispatch overheads
-        encode_column(
-            &mut rows.buffer,
-            &mut rows.offsets[write_offset..],
-            &columns[0],
-            &encoders[0],
-        );
+        for slice in subslices {
+            // If all the same type
+            if slice[0].data_type().is_primitive() && slice.len() > 1 {
+                if slice[0].null_count() == 0 {
+                    let encoders = encoders_iter.by_ref().take(slice.len()).collect::<Vec<_>>();
+                    chunks.push(ColumnChunk::ContinuesSamePrimitiveType {
+                        encoders,
+                        arrays: slice,
+                    });
+                } else {
+                    let encoders = encoders_iter.by_ref().take(slice.len()).collect::<Vec<_>>();
+                    chunks.push(ColumnChunk::ContinuesSamePrimitiveTypeWithNulls {
+                        encoders,
+                        arrays: slice,
+                    });
+                }
+            } else {
+                slice.iter().for_each(|&array| {
+                    chunks.push(ColumnChunk::SingleColumn {
+                        array,
+                        encoder: encoders_iter.next().unwrap(),
+                    });
+                });
+            }
+        }
 
 
 
-        // for chunk in chunks {
-        //     match chunk {
-        //         ColumnChunk::ContinuesSamePrimitiveType {
-        //             encoders,
-        //             arrays,
-        //         } => {
-        //             let column1 = &arrays[0];
-        //
-        //             fn find_matching_size<T>(rows: &mut UnorderedRows, write_offset: usize, arrays: &[&dyn Array])
-        //             where T: ArrowPrimitiveType,
-        //                   <T as arrow_array::ArrowPrimitiveType>::Native: fixed::FixedLengthEncoding,
-        //             {
-        //                 let data = &mut rows.buffer;
-        //                 let offsets = &mut rows.offsets[write_offset..];
-        //                 match arrays.len() {
-        //                     0 => {},
-        //                     1 => {
-        //                         encode_column_fixed::<1, T>(
-        //                             data,
-        //                             offsets,
-        //                             arrays,
-        //                         )
-        //                     }
-        //                     2 => encode_column_fixed::<2, T>(
-        //                         data,
-        //                         offsets,
-        //                         arrays,
-        //                     ),
-        //                     3 => encode_column_fixed::<3, T>(
-        //                         data,
-        //                         offsets,
-        //                         arrays,
-        //                     ),
-        //                     4 => encode_column_fixed::<4, T>(
-        //                         data,
-        //                         offsets,
-        //                         arrays,
-        //                     ),
-        //                     _ => {
-        //                         //
-        //                         let iter = arrays.chunks_exact(4);
-        //                         let remainder = iter.remainder();
-        //
-        //                         iter.for_each(|chunk| {
-        //                             encode_column_fixed::<4, T>(
-        //                                 data,
-        //                                 offsets,
-        //                                 chunk,
-        //                             )
-        //                         });
-        //
-        //                         find_matching_size::<T>(rows, write_offset, remainder);
-        //                     }
-        //                 }
-        //             }
-        //
-        //             macro_rules! decode_primitive_helper {
-        //                 ($t:ty) => {
-        //                     find_matching_size::<$t>(rows, write_offset, arrays)
-        //                 };
-        //             }
-        //
-        //             downcast_primitive! {
-        //                 arrays[0].data_type() => (decode_primitive_helper),
-        //
-        //                 _ => unreachable!("unsupported data type: {}", arrays[0].data_type()),
-        //             }
-        //
-        //         }
-        //         ColumnChunk::ContinuesSamePrimitiveTypeWithNulls {
-        //             encoders,
-        //             arrays,
-        //         } => {
-        //             let column1 = &arrays[0];
-        //
-        //             fn find_matching_size<T>(rows: &mut UnorderedRows, write_offset: usize, arrays: &[&dyn Array])
-        //             where T: ArrowPrimitiveType,
-        //                   <T as arrow_array::ArrowPrimitiveType>::Native: fixed::FixedLengthEncoding,
-        //             {
-        //                 let data = &mut rows.buffer;
-        //                 let offsets = &mut rows.offsets[write_offset..];
-        //                 match arrays.len() {
-        //                     0 => {},
-        //                     1 => {
-        //                         encode_column_nulls_fixed::<1, T>(
-        //                             data,
-        //                             offsets,
-        //                             arrays,
-        //                         )
-        //                     }
-        //                     2 => encode_column_nulls_fixed::<2, T>(
-        //                         data,
-        //                         offsets,
-        //                         arrays,
-        //                     ),
-        //                     3 => encode_column_nulls_fixed::<3, T>(
-        //                         data,
-        //                         offsets,
-        //                         arrays,
-        //                     ),
-        //                     // 4 => encode_column_nulls_fixed::<4, T>(
-        //                     //     data,
-        //                     //     offsets,
-        //                     //     arrays,
-        //                     // ),
-        //                     _ => {
-        //                         //
-        //                         let iter = arrays.chunks_exact(4);
-        //                         let remainder = iter.remainder();
-        //
-        //                         iter.for_each(|chunk| {
-        //                             encode_column_nulls_fixed::<4, T>(
-        //                                 data,
-        //                                 offsets,
-        //                                 chunk,
-        //                             )
-        //                         });
-        //
-        //                         find_matching_size::<T>(rows, write_offset, remainder);
-        //                     }
-        //                 }
-        //             }
-        //
-        //             macro_rules! decode_primitive_helper {
-        //                 ($t:ty) => {
-        //                     find_matching_size::<$t>(rows, write_offset, arrays)
-        //                 };
-        //             }
-        //
-        //             downcast_primitive! {
-        //                 arrays[0].data_type() => (decode_primitive_helper),
-        //
-        //                 _ => unreachable!("unsupported data type: {}", arrays[0].data_type()),
-        //             }
-        //
-        //         }
-        //         ColumnChunk::SingleColumn {
-        //             array,
-        //             encoder,
-        //         } => {
-        //             // We encode a column at a time to minimise dispatch overheads
-        //             encode_column(
-        //                 &mut rows.buffer,
-        //                 &mut rows.offsets[write_offset..],
-        //                 array,
-        //                 &encoder,
-        //             )
-        //         }
-        //     }
-        // }
+        for chunk in chunks {
+            match chunk {
+                ColumnChunk::ContinuesSamePrimitiveType {
+                    encoders,
+                    arrays,
+                } => {
+                    let column1 = &arrays[0];
+
+                    fn find_matching_size<T>(rows: &mut UnorderedRows, write_offset: usize, arrays: &[&dyn Array])
+                    where T: ArrowPrimitiveType,
+                          <T as arrow_array::ArrowPrimitiveType>::Native: fixed::FixedLengthEncoding,
+                    {
+                        let data = &mut rows.buffer;
+                        let offsets = &mut rows.offsets[write_offset..];
+                        match arrays.len() {
+                            0 => {},
+                            1 => {
+                                encode_column_fixed::<1, T>(
+                                    data,
+                                    offsets,
+                                    arrays,
+                                )
+                            }
+                            2 => encode_column_fixed::<2, T>(
+                                data,
+                                offsets,
+                                arrays,
+                            ),
+                            3 => encode_column_fixed::<3, T>(
+                                data,
+                                offsets,
+                                arrays,
+                            ),
+                            4 => encode_column_fixed::<4, T>(
+                                data,
+                                offsets,
+                                arrays,
+                            ),
+                            _ => {
+                                //
+                                let iter = arrays.chunks_exact(4);
+                                let remainder = iter.remainder();
+
+                                iter.for_each(|chunk| {
+                                    encode_column_fixed::<4, T>(
+                                        data,
+                                        offsets,
+                                        chunk,
+                                    )
+                                });
+
+                                find_matching_size::<T>(rows, write_offset, remainder);
+                            }
+                        }
+                    }
+
+                    macro_rules! decode_primitive_helper {
+                        ($t:ty) => {
+                            find_matching_size::<$t>(rows, write_offset, arrays)
+                        };
+                    }
+
+                    downcast_primitive! {
+                        arrays[0].data_type() => (decode_primitive_helper),
+
+                        _ => unreachable!("unsupported data type: {}", arrays[0].data_type()),
+                    }
+
+                }
+                ColumnChunk::ContinuesSamePrimitiveTypeWithNulls {
+                    encoders,
+                    arrays,
+                } => {
+                    let column1 = &arrays[0];
+
+                    fn find_matching_size<T>(rows: &mut UnorderedRows, write_offset: usize, arrays: &[&dyn Array])
+                    where T: ArrowPrimitiveType,
+                          <T as arrow_array::ArrowPrimitiveType>::Native: fixed::FixedLengthEncoding,
+                    {
+                        let data = &mut rows.buffer;
+                        let offsets = &mut rows.offsets[write_offset..];
+                        match arrays.len() {
+                            0 => {},
+                            1 => {
+                                encode_column_nulls_fixed::<1, T>(
+                                    data,
+                                    offsets,
+                                    arrays,
+                                )
+                            }
+                            2 => encode_column_nulls_fixed::<2, T>(
+                                data,
+                                offsets,
+                                arrays,
+                            ),
+                            3 => encode_column_nulls_fixed::<3, T>(
+                                data,
+                                offsets,
+                                arrays,
+                            ),
+                            // 4 => encode_column_nulls_fixed::<4, T>(
+                            //     data,
+                            //     offsets,
+                            //     arrays,
+                            // ),
+                            _ => {
+                                //
+                                let iter = arrays.chunks_exact(4);
+                                let remainder = iter.remainder();
+
+                                iter.for_each(|chunk| {
+                                    encode_column_nulls_fixed::<4, T>(
+                                        data,
+                                        offsets,
+                                        chunk,
+                                    )
+                                });
+
+                                find_matching_size::<T>(rows, write_offset, remainder);
+                            }
+                        }
+                    }
+
+                    macro_rules! decode_primitive_helper {
+                        ($t:ty) => {
+                            find_matching_size::<$t>(rows, write_offset, arrays)
+                        };
+                    }
+
+                    downcast_primitive! {
+                        arrays[0].data_type() => (decode_primitive_helper),
+
+                        _ => unreachable!("unsupported data type: {}", arrays[0].data_type()),
+                    }
+
+                }
+                ColumnChunk::SingleColumn {
+                    array,
+                    encoder,
+                } => {
+                    // We encode a column at a time to minimise dispatch overheads
+                    encode_column(
+                        &mut rows.buffer,
+                        &mut rows.offsets[write_offset..],
+                        array,
+                        &encoder,
+                    )
+                }
+            }
+        }
 
         // if columns.len() == 2
         //     && self.fields.len() == 2
@@ -2118,7 +2108,7 @@ fn encode_column(
             downcast_primitive_array! {
                 column => {
                     if let Some(nulls) = column.nulls().filter(|n| n.null_count() > 0){
-                        fixed::encode_with_nulls(data, offsets, column.values(), nulls)
+                        fixed::encode(data, offsets, column.values(), nulls)
                     } else {
                         fixed::encode_not_null(data, offsets, column.values())
                     }

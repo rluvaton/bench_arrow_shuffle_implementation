@@ -447,11 +447,8 @@ fn encode_all_valid(data: &mut [u8], offsets: &mut [usize], null_bits: usize) {
 
 fn encode_all_as_single_byte(data: &mut [u8], offsets: &mut [usize], nulls: &NullBuffer) {
     for (offset, is_valid) in offsets.iter_mut().skip(1).zip(nulls.iter()) {
-        unsafe { *data.get_unchecked_mut(*offset) = is_valid as u8; }
-        // data[*offset] = is_valid as u8;
-        *offset = (*offset).wrapping_add(1);
-        // data[*offset] = is_valid as u8;
-        // *offset += 1;
+        data[*offset] = is_valid as u8;
+        *offset += 1;
     }
 }
 

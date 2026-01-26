@@ -32,7 +32,7 @@ mod tests {
     #[test]
     fn run_benchmark() {
         let number_of_partitions = 1500;
-        let batch_size = 10;
+        let batch_size = 8192;
         let number_of_batches = 1;
 
         // this will create output batches of size ~700
@@ -81,10 +81,11 @@ mod tests {
         // }
 
         for start in 0..inputs_refs_slice[0].batch.num_columns() {
-            for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
-                if start == 0 && end == 1 {
-                    continue
-                }
+            // for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
+                let end = inputs_refs_slice[0].batch.num_columns();
+                // if start == 0 && end < 4 {
+                //     continue
+                // }
                 let project_indices = (start..end).collect::<Vec<_>>();
                 let projected_batch = inputs_refs_slice[0].batch.project(&project_indices).unwrap();
                 println!("start: {}, end: {}", start, end);
@@ -97,7 +98,7 @@ mod tests {
                 let input_ref = input.as_ref();
 
                 test_combination_that_fail(&[input_ref], batch_size, number_of_partitions);
-            }
+            // }
         }
         // {
         //   let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
