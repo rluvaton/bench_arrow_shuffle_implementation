@@ -277,7 +277,6 @@ type Output = Vec<Vec<RecordBatch>>;
 
 fn take_to_builders_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let fields = input[0].batch.schema_ref().fields();
-  panic!("fields: {}", fields.len());
   let mut partitions_sink = (0..number_of_partitions).map(|_| bench_shuffle::take::create_sinks(fields, batch_size)).collect::<Vec<_>>();
 
   for input in input.iter() {
