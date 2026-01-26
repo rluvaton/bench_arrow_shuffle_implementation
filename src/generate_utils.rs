@@ -119,7 +119,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..10 {
+  for _ in 0..30 {
     let nulls = 0.3;
 
     *seed += 1;
@@ -152,7 +152,7 @@ pub fn generate_batch(
     cols.push(array);
   }
   //
-  for _ in 0..3 {
+  for _ in 0..20 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -169,7 +169,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..3 {
+  for _ in 0..20 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -186,7 +186,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..3 {
+  for _ in 0..20 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -218,7 +218,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..10 {
+  for _ in 0..30 {
     *seed += 1;
     let nulls = 0.0;
     let array = Arc::new(create_primitive_array_with_seed::<Int64Type>(

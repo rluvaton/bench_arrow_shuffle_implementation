@@ -411,5 +411,10 @@ fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], b
   output
 }
 
-criterion_group!(benches, run_benchmark);
+criterion_group!{
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = run_benchmark
+}
+// criterion_group!(benches, run_benchmark);
 criterion_main!(benches);
