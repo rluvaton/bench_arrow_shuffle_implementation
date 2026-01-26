@@ -2,7 +2,7 @@ extern crate core;
 #[macro_use]
 extern crate criterion;
 
-use arrow_array::{Int32Array, RecordBatch, UInt32Array};
+use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UInt32Array};
 // use arrow_row::unordered_row::UnorderedRowConverter;
 use bench_shuffle::generate_utils::generate_batch;
 use criterion::Criterion;
@@ -29,39 +29,132 @@ fn run_benchmark(c: &mut Criterion) {
   });
 
   let inputs_refs_vec: Vec<InputRef<'_>> = inputs.iter().map(|x| InputRef { batch: &x.batch, partitions: &x.partitions, indices_per_partition: &x.indices_per_partition }).collect();
+  let input_columns: InputColumns = InputColumns {
+    columns: {
+      let number_of_columns = inputs[0].batch.num_columns();
+      let mut columns = vec![vec![]; number_of_columns];
+
+      for column_index in 0..number_of_columns {
+        for batch in &inputs {
+          columns[column_index].push(SingleColumnInput {
+            column: &batch.batch.column(column_index),
+            indices_per_partition: &batch.indices_per_partition
+          });
+        }
+      }
+
+      columns
+    }
+  };
+  let interleave_optimized_input: InterleaveOptimizedInput<'_> = {
+    let batches = inputs.iter().map(|x| &x.batch).collect::<Vec<_>>();
+    let partition_indices = (0..number_of_partitions)
+      .map(|partition_index| {
+        let indices = inputs.iter().enumerate().flat_map(|(batch_index, input)| {
+          input.indices_per_partition[partition_index].values().iter().map(move |index| (batch_index, *index as usize))
+        })
+          .collect::<Vec<(usize, usize)>>();
+
+        indices
+      })
+      .collect::<Vec<_>>();
+    InterleaveOptimizedInput {
+      batches,
+      partitions: partition_indices
+    }
+  };
+  let interleave_column_wise_optimized_input: InterleaveColumnWiseOptimizedInput<'_> = {
+    let columns = input_columns.columns.iter().map(|partitions| partitions.iter().map(|x| x.column.as_ref()).collect::<Vec<_>>()).collect::<Vec<_>>();
+    let partition_indices = (0..number_of_partitions)
+      .map(|partition_index| {
+        let indices = inputs.iter().enumerate().flat_map(|(batch_index, input)| {
+          input.indices_per_partition[partition_index].values().iter().map(move |index| (batch_index, *index as usize))
+        })
+          .collect::<Vec<(usize, usize)>>();
+
+        indices
+      })
+      .collect::<Vec<_>>();
+    InterleaveColumnWiseOptimizedInput {
+      columns,
+      partitions: partition_indices
+    }
+  };
   let inputs_refs_slice = inputs_refs_vec.as_slice();
 
+  let mut group = c.benchmark_group("shuffle");
+
+
   {
-    let mut group = c.benchmark_group("shuffle_take_approach");
-    group.bench_function("take_approach", |b| {
+    group.bench_function("take_to_builders_approach", |b| {
       b.iter(|| {
         let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
-    group.finish();
   }
 
   {
-    let mut group = c.benchmark_group("shuffle_row_format_approach");
+    group.bench_function("take_to_builders_column_wise_approach", |b| {
+      b.iter(|| {
+        let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("take_approach", |b| {
+      b.iter(|| {
+        let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("take_column_wise_approach", |b| {
+      b.iter(|| {
+        let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("interleave_approach", |b| {
+      b.iter(|| {
+        let output = interleave_approach(&interleave_optimized_input, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("interleave_column_wise_approach", |b| {
+      b.iter(|| {
+        let output = interleave_column_wise_approach(inputs_refs_slice, &interleave_column_wise_optimized_input, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
     group.bench_function("row_format_approach", |b| {
       b.iter(|| {
         let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
-    group.finish();
   }
 
   {
-    let mut group = c.benchmark_group("shuffle_row_format_approach");
     group.bench_function("row_format_approach going partition wise", |b| {
       b.iter(|| {
         let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
-    group.finish();
   }
 
   // for start in 0..inputs_refs_slice[0].batch.num_columns() {
@@ -81,25 +174,21 @@ fn run_benchmark(c: &mut Criterion) {
   //   }
   // }
   {
-    let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
     group.bench_function("optimized_row_format_approach", |b| {
       b.iter(|| {
         let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
-    group.finish();
   }
 
   {
-    let mut group = c.benchmark_group("shuffle_optimized_row_format_approach");
     group.bench_function("optimized_row_format_approach going partition wise", |b| {
       b.iter(|| {
         let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
-    group.finish();
   }
 
 }
@@ -156,6 +245,18 @@ struct Input {
   indices_per_partition: Vec<UInt32Array>
 }
 
+#[derive(Clone, Copy)]
+struct SingleColumnInput<'a> {
+  column: &'a ArrayRef,
+  /// Indices per partition partition[partition_index] = indices in the batch for that partition
+  indices_per_partition: &'a [UInt32Array]
+}
+
+struct InputColumns<'a> {
+  /// `columns[column_index][batch_index]` = (column value for that batch, indices per partition for that batch)
+  columns: Vec<Vec<SingleColumnInput<'a>>>
+}
+
 impl Input {
   fn as_ref<'a>(&'a self) -> InputRef<'a> {
     InputRef { batch: &self.batch, partitions: &self.partitions, indices_per_partition: &self.indices_per_partition }
@@ -174,9 +275,9 @@ struct InputRef<'a> {
 /// The output is `output[partition_index][batches]`
 type Output = Vec<Vec<RecordBatch>>;
 
-/// Take and concat
 fn take_to_builders_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let fields = input[0].batch.schema_ref().fields();
+  panic!("fields: {}", fields.len());
   let mut partitions_sink = (0..number_of_partitions).map(|_| bench_shuffle::take::create_sinks(fields, batch_size)).collect::<Vec<_>>();
 
   for input in input.iter() {
@@ -201,6 +302,181 @@ fn take_to_builders_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, n
     }).collect::<Vec<_>>();
 
   output
+}
+
+fn take_to_builders_column_wise_approach<'a>(input: &'a [InputRef<'a>], columns_based: &'a InputColumns<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
+  let fields = input[0].batch.schema_ref().fields();
+
+  // columns_sink[column_index][partition_index] = sink for that column in that partition
+  let mut columns_sink = fields.iter().map(|f| (0..number_of_partitions).map(|_| bench_shuffle::take::create_sink(f.as_ref(), batch_size)).collect::<Vec<_>>()).collect::<Vec<_>>();
+
+  for (column_and_indices, partition_sinks) in columns_based.columns.iter().zip(columns_sink.iter_mut()) {
+    for SingleColumnInput { column, indices_per_partition } in column_and_indices {
+      for (indices, sink) in indices_per_partition.iter().zip(partition_sinks.iter_mut()) {
+        bench_shuffle::take::take_to_sink(column.as_ref(), sink, indices).expect("should be able to take");
+      }
+    }
+  }
+
+  // columns[partition_index][column_index] = column values for that partition
+  let mut output_partitions = vec![Vec::with_capacity(fields.len()); number_of_partitions];
+
+  for (partitions, field) in columns_sink.iter_mut().zip(fields.iter()) {
+    for (partition_index, sink) in partitions.iter_mut().enumerate() {
+      let column = bench_shuffle::take::finish_sink(
+        field.as_ref(),
+        sink,
+        batch_size
+      );
+
+      output_partitions[partition_index].push(column);
+    }
+  }
+
+  let schema = input[0].batch.schema_ref();
+
+  let mut output = vec![Vec::with_capacity(1); number_of_partitions];
+
+  for (partition_index, partition) in output_partitions.into_iter().enumerate() {
+    let batch = RecordBatch::try_new(Arc::clone(schema), partition).expect("should be able to create batch");
+    assert!(batch.num_rows() <= batch_size);
+    output[partition_index].push(batch);
+  }
+
+  output
+}
+
+
+
+fn take_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
+  let fields = input[0].batch.schema_ref().fields();
+
+  // array[partition_index][column_index][input_batch_index] = array of
+  let mut partitions = vec![vec![Vec::with_capacity(input.len()); fields.len()]; number_of_partitions];
+
+  for input in input.iter() {
+    for (indices, output_partition) in input.indices_per_partition.iter().zip(partitions.iter_mut()) {
+      let columns = arrow_select::take::take_arrays(input.batch.columns(), indices, None).expect("should be able to take");
+
+      for (column_index, column) in columns.into_iter().enumerate() {
+        output_partition[column_index].push(column);
+      }
+    }
+  }
+
+  // array[partition_index][column_index] = column values for that partition
+  let mut output_columns = vec![Vec::with_capacity(fields.len()); number_of_partitions];
+
+  for (partition, output_partition) in partitions.into_iter().zip(output_columns.iter_mut()) {
+    for column_in_batches in partition {
+      let concat_input = column_in_batches.iter().map(|a| a.as_ref()).collect::<Vec<_>>();
+      let column = arrow_select::concat::concat(concat_input.as_slice()).expect("should be able to concat");
+      output_partition.push(column);
+    }
+  }
+
+  let schema = input[0].batch.schema_ref();
+
+  let output = output_columns.into_iter()
+    .map(|partition| {
+      let batch = RecordBatch::try_new(Arc::clone(schema), partition).expect("should be able to create batch");
+      assert!(batch.num_rows() <= batch_size);
+
+      vec![batch]
+    })
+    .collect::<Vec<_>>();
+
+  output
+}
+
+
+fn take_column_wise_approach<'a>(input: &'a [InputRef<'a>], columns_based: &'a InputColumns<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
+  let fields = input[0].batch.schema_ref().fields();
+
+  // array[column_index][partition_index][input_batch_index] = array of
+  let mut columns_partitions_input_take = vec![vec![Vec::with_capacity(input.len()); number_of_partitions]; fields.len()];
+
+  for (column_and_indices, output_partitions) in columns_based.columns.iter().zip(columns_partitions_input_take.iter_mut()) {
+    for SingleColumnInput { column, indices_per_partition } in column_and_indices {
+      for (indices, partition_columns) in indices_per_partition.iter().zip(output_partitions.iter_mut()) {
+        let output_column = arrow_select::take::take(column.as_ref(), indices, None).expect("should be able to take");
+        partition_columns.push(output_column);
+      }
+    }
+  }
+
+  // array[partition_index][column_index] = column values for that partition
+  let mut output_partitions = vec![Vec::with_capacity(fields.len()); number_of_partitions];
+
+  for (column_partitions, field) in columns_partitions_input_take.iter_mut().zip(fields.iter()) {
+    for (partition_index, partition) in column_partitions.iter().enumerate() {
+      let concat_input = partition.iter().map(|a| a.as_ref()).collect::<Vec<_>>();
+      let column = arrow_select::concat::concat(concat_input.as_slice()).expect("should be able to concat");
+
+
+      output_partitions[partition_index].push(column);
+    }
+  }
+
+  let schema = input[0].batch.schema_ref();
+
+  let output = output_partitions.into_iter()
+    .map(|partition| {
+      let batch = RecordBatch::try_new(Arc::clone(schema), partition).expect("should be able to create batch");
+      assert!(batch.num_rows() <= batch_size);
+
+      vec![batch]
+    })
+    .collect::<Vec<_>>();
+
+  output
+}
+
+struct InterleaveOptimizedInput<'a> {
+  batches: Vec<&'a RecordBatch>,
+  /// `indices[partition_index][output_row_index] = (batch_index, row_index)`
+  partitions: Vec<Vec<(usize, usize)>>,
+}
+
+fn interleave_approach<'a>(input: &'a InterleaveOptimizedInput<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
+  let output = input.partitions
+    .iter()
+    .map(|partition| {
+      let batch = arrow_select::interleave::interleave_record_batch(input.batches.as_slice(), partition.as_slice()).expect("should be able to interleave");
+      assert!(batch.num_rows() <= batch_size);
+
+      vec![batch]
+    })
+    .collect::<Vec<_>>();
+
+  output
+}
+
+struct InterleaveColumnWiseOptimizedInput<'a> {
+  /// `columns[column_index][batch_index] = column array for that batch`
+  columns: Vec<Vec<&'a dyn Array>>,
+  /// `indices[partition_index][output_row_index] = (batch_index, row_index)`
+  partitions: Vec<Vec<(usize, usize)>>,
+}
+
+fn interleave_column_wise_approach<'a>(input: &'a [InputRef<'a>], interleave_input: &'a InterleaveColumnWiseOptimizedInput<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
+  let schema = input[0].batch.schema_ref();
+  let number_of_columns = interleave_input.columns.len();
+
+  interleave_input.partitions.iter()
+    .map(|partition| {
+      let mut output_partition_columns = Vec::with_capacity(number_of_columns);
+      for column_arrays in interleave_input.columns.iter() {
+        let output_partition = arrow_select::interleave::interleave(column_arrays.as_slice(), partition.as_slice()).expect("should be able to interleave");
+        output_partition_columns.push(output_partition);
+      }
+
+      let batch = RecordBatch::try_new(Arc::clone(schema), output_partition_columns).expect("should be able to create batch");
+      assert!(batch.num_rows() <= batch_size);
+
+      vec![batch]
+    })
+    .collect::<Vec<_>>()
 }
 
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have

@@ -265,29 +265,46 @@ pub fn take_to_sinks(
     )
 }
 
+pub fn take_to_sink(
+    array: &dyn Array,
+    sink: &mut Box<dyn Sink>,
+    indices: &dyn Array,
+) -> Result<(), ArrowError> {
+    downcast_integer_array!(
+        indices => {
+            let indices = indices.to_indices();
+            take_impl(array, &indices, sink.as_mut());
+
+            Ok(())
+        },
+        d => Err(ArrowError::InvalidArgumentError(format!("Take only supported for integers, got {d:?}")))
+    )
+}
+
 pub fn create_sinks(fields: &Fields, batch_size: usize) -> Vec<Box<dyn Sink>> {
+    fields
+      .iter()
+      .map(|f| create_sink(f, batch_size))
+      .collect()
+}
+
+pub fn create_sink(field: &Field, batch_size: usize) -> Box<dyn Sink> {
     macro_rules! primitive_size_helper {
-        ($t:ty, $f:expr) => {
-            create_primitive_sink::<$t>($f.as_ref(), batch_size)
+        ($t:ty) => {
+            create_primitive_sink::<$t>(field, batch_size)
         };
     }
-
-    fields
-        .iter()
-        .map(|f| {
-            let dt = f.data_type();
-            downcast_primitive!(
-                dt => (primitive_size_helper, f),
-                DataType::Boolean => {
-                    Box::new(BooleanSink::new(f.as_ref(), batch_size)) as Box<dyn Sink>
-                },
-                DataType::Utf8 => {
-                    Box::new(GenericByteSink::<Utf8Type>::new(f.as_ref(), batch_size))
-                },
-                dt => unimplemented!("not implemented create sink for {dt:?}")
-            )
-        })
-        .collect()
+    let dt = field.data_type();
+    downcast_primitive!(
+        dt => (primitive_size_helper),
+        DataType::Boolean => {
+            Box::new(BooleanSink::new(field.as_ref(), batch_size)) as Box<dyn Sink>
+        },
+        DataType::Utf8 => {
+            Box::new(GenericByteSink::<Utf8Type>::new(field.as_ref(), batch_size))
+        },
+        dt => unimplemented!("not implemented create sink for {dt:?}")
+    )
 }
 
 fn create_primitive_sink<T: ArrowPrimitiveType>(field: &Field, batch_size: usize) -> Box<dyn Sink> {
@@ -303,28 +320,32 @@ fn create_primitive_sink<T: ArrowPrimitiveType>(field: &Field, batch_size: usize
 }
 
 pub fn finish_sinks(fields: &Fields, sinks: &mut [Box<dyn Sink>], batch_size: usize) -> RecordBatch {
+    let columns = fields
+      .iter()
+      .zip(sinks)
+      .map(|(f, sink)| {
+          finish_sink(f.as_ref(), sink, batch_size)
+      })
+      .collect::<Vec<ArrayRef>>();
+
+    RecordBatch::try_new(Arc::new(Schema::new(fields.clone())), columns)
+      .expect("should be able to create record batch")
+}
+
+pub fn finish_sink(field: &Field, sink: &mut Box<dyn Sink>, batch_size: usize) -> ArrayRef {
     macro_rules! primitive_size_helper {
-        ($t:ty, $f:expr, $sink: expr) => {
-            finish_primitive_sink::<$t>($f.as_ref(), $sink)
+        ($t:ty) => {
+            finish_primitive_sink::<$t>(field, sink)
         };
     }
 
-    let columns = fields
-        .iter()
-        .zip(sinks)
-        .map(|(f, sink)| {
-            let dt = f.data_type();
-            downcast_primitive!(
-                dt => (primitive_size_helper, f, sink),
-                DataType::Boolean => finish_boolean_sink(f, sink),
-                DataType::Utf8 => finish_byte_sink::<Utf8Type>(f, sink),
-                dt => unimplemented!("not implemented create sink for {dt:?}")
-            )
-        })
-        .collect::<Vec<ArrayRef>>();
-
-    RecordBatch::try_new(Arc::new(Schema::new(fields.clone())), columns)
-        .expect("should be able to create record batch")
+  let dt = field.data_type();
+  downcast_primitive!(
+        dt => (primitive_size_helper),
+        DataType::Boolean => finish_boolean_sink(field, sink),
+        DataType::Utf8 => finish_byte_sink::<Utf8Type>(field, sink),
+        dt => unimplemented!("not implemented create sink for {dt:?}")
+    )
 }
 
 fn finish_primitive_sink<T: ArrowPrimitiveType>(
