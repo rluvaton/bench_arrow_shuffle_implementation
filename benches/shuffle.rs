@@ -174,37 +174,34 @@ fn run_benchmark(c: &mut Criterion) {
   //   }
   // }
   {
-    group.bench_function("optimized_row_format_approach", |b| {
+    group.bench_function("encode", |b| {
+      let schema = inputs[0].batch.schema_ref();
+      let fields = schema.fields();
+      let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+        fields.clone(),
+      ).expect("should be able to create row converter");
       b.iter(|| {
-        let output = optimized_row_format_approach::<false>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
+        for batch in inputs_refs_slice {
+          let output = row_converter.convert_columns::<false>(batch.batch.columns()).expect("should be able to convert columns");
+          hint::black_box(output);
+
+        }
       });
     });
   }
-
   {
-    group.bench_function("optimized_row_format_approach going partition wise", |b| {
+    group.bench_function("encode multiple at a time", |b| {
+      let schema = inputs[0].batch.schema_ref();
+      let fields = schema.fields();
+      let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+        fields.clone(),
+      ).expect("should be able to create row converter");
       b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise::<false>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
+        for batch in inputs_refs_slice {
+          let output = row_converter.convert_columns::<true>(batch.batch.columns()).expect("should be able to convert columns");
+          hint::black_box(output);
 
-  {
-    group.bench_function("optimized_row_format_approach encode multiple columns at once", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach::<true>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("optimized_row_format_approach encode multiple columns at once going partition wise", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise::<true>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
+        }
       });
     });
   }
