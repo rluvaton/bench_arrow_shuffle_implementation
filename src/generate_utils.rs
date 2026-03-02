@@ -119,24 +119,24 @@ pub fn generate_batch(
   //   cols.push(array);
   // }
 
-  for _ in 0..30 {
-    let nulls = 0.3;
-
-    *seed += 1;
-    let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
-      batch_size, nulls, *seed,
-    )) as ArrayRef;
-
-    fields.push(Arc::new(Field::new(
-      format!("col_{}", cols.len()),
-      array.data_type().clone(),
-      nulls != 0.0,
-
-    )));
-
-    cols.push(array);
-  }
+  // for _ in 0..30 {
+  //   let nulls = 0.3;
   //
+  //   *seed += 1;
+  //   let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
+  //     batch_size, nulls, *seed,
+  //   )) as ArrayRef;
+  //
+  //   fields.push(Arc::new(Field::new(
+  //     format!("col_{}", cols.len()),
+  //     array.data_type().clone(),
+  //     nulls != 0.0,
+  //
+  //   )));
+  //
+  //   cols.push(array);
+  // }
+
   // for nulls in [0.0, 0.1, 0.2, 0.5] {
   //   *seed += 1;
   //   let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
@@ -151,57 +151,73 @@ pub fn generate_batch(
   //
   //   cols.push(array);
   // }
-  // //
-  // for _ in 0..20 {
-  //   let nulls = 0.0;
   //
-  //   *seed += 1;
-  //   let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
-  //     batch_size, nulls, 0, 10, "", *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
-  //
-  // for _ in 0..20 {
-  //   let nulls = 0.0;
-  //
-  //   *seed += 1;
-  //   let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
-  //     batch_size, nulls, 10, 20, "", *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
-  //
-  // for _ in 0..20 {
-  //   let nulls = 0.0;
-  //
-  //   *seed += 1;
-  //   let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
-  //     batch_size, nulls, 20, 30, "", *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
+  for _ in 0..30 {
+    let nulls = 0.0;
+
+    *seed += 1;
+    let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
+      batch_size, nulls, 0, 10, "", *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+  for _ in 0..4 {
+    let nulls = 0.0;
+
+    *seed += 1;
+    let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
+      batch_size, nulls, 16, 16, "", *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+
+  for _ in 0..30 {
+    let nulls = 0.0;
+
+    *seed += 1;
+    let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
+      batch_size, nulls, 10, 20, "", *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+
+  for _ in 0..30 {
+    let nulls = 0.0;
+
+    *seed += 1;
+    let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
+      batch_size, nulls, 20, 30, "", *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
   //
   // for nulls in [0.0, 0.1, 0.2, 0.5] {
   //   *seed += 1;
@@ -218,21 +234,21 @@ pub fn generate_batch(
   //   cols.push(array);
   // }
 
-  for _ in 0..30 {
-    *seed += 1;
-    let nulls = 0.0;
-    let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
-      batch_size, nulls, *seed,
-    )) as ArrayRef;
-
-    fields.push(Arc::new(Field::new(
-      format!("col_{}", cols.len()),
-      array.data_type().clone(),
-      nulls != 0.0,
-    )));
-
-    cols.push(array);
-  }
+  // for _ in 0..30 {
+  //   *seed += 1;
+  //   let nulls = 0.0;
+  //   let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
+  //     batch_size, nulls, *seed,
+  //   )) as ArrayRef;
+  //
+  //   fields.push(Arc::new(Field::new(
+  //     format!("col_{}", cols.len()),
+  //     array.data_type().clone(),
+  //     nulls != 0.0,
+  //   )));
+  //
+  //   cols.push(array);
+  // }
   //
   // for nulls in [0.0, 0.1, 0.2, 0.5] {
   //   *seed += 1;
