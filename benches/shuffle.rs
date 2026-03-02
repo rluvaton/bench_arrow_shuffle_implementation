@@ -84,78 +84,78 @@ fn run_benchmark(c: &mut Criterion) {
 
   let mut group = c.benchmark_group("shuffle");
 
-
-  {
-    group.bench_function("take_to_builders_approach", |b| {
-      b.iter(|| {
-        let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("take_to_builders_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("take_approach", |b| {
-      b.iter(|| {
-        let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("take_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("interleave_approach", |b| {
-      b.iter(|| {
-        let output = interleave_approach(&interleave_optimized_input, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("interleave_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = interleave_column_wise_approach(inputs_refs_slice, &interleave_column_wise_optimized_input, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("row_format_approach", |b| {
-      b.iter(|| {
-        let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("row_format_approach going partition wise", |b| {
-      b.iter(|| {
-        let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
+  //
+  // {
+  //   group.bench_function("take_to_builders_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_to_builders_column_wise_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_column_wise_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("interleave_approach", |b| {
+  //     b.iter(|| {
+  //       let output = interleave_approach(&interleave_optimized_input, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("interleave_column_wise_approach", |b| {
+  //     b.iter(|| {
+  //       let output = interleave_column_wise_approach(inputs_refs_slice, &interleave_column_wise_optimized_input, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("row_format_approach", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("row_format_approach going partition wise", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
 
   // for start in 0..inputs_refs_slice[0].batch.num_columns() {
   //   for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
@@ -176,7 +176,7 @@ fn run_benchmark(c: &mut Criterion) {
   {
     group.bench_function("optimized_row_format_approach", |b| {
       b.iter(|| {
-        let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = optimized_row_format_approach::<false>(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -185,7 +185,25 @@ fn run_benchmark(c: &mut Criterion) {
   {
     group.bench_function("optimized_row_format_approach going partition wise", |b| {
       b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = optimized_row_format_approach_partition_wise::<false>(inputs_refs_slice, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("optimized_row_format_approach encode multiple columns at once", |b| {
+      b.iter(|| {
+        let output = optimized_row_format_approach::<true>(inputs_refs_slice, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("optimized_row_format_approach encode multiple columns at once going partition wise", |b| {
+      b.iter(|| {
+        let output = optimized_row_format_approach_partition_wise::<true>(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -575,7 +593,7 @@ fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, 
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns::<false>(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (index, partition) in input.partitions.iter().enumerate() {
@@ -602,7 +620,7 @@ fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, 
 }
 
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have
-fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
+fn optimized_row_format_approach<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
   let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
@@ -615,7 +633,7 @@ fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usiz
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns::<ENCODE_MULTI_COLUMNS_AT_ONCE>(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (index, partition) in input.partitions.iter().enumerate() {
@@ -644,7 +662,7 @@ fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usiz
 
 
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have
-fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
+fn optimized_row_format_approach_partition_wise<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
   let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
@@ -657,7 +675,7 @@ fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], b
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns::<ENCODE_MULTI_COLUMNS_AT_ONCE>(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (indices, partition) in input.indices_per_partition.iter().zip(partitions_sink.iter_mut()) {
