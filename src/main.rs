@@ -64,9 +64,13 @@ fn main() {
 
   std::thread::sleep(std::time::Duration::from_millis(3000 - elapsed.as_millis() as u64));
 
+  let start_time = std::time::Instant::now();
+
   for _ in 0..iterations {
     bench_fn(&generated_derive);
   }
 
-  println!("Done.");
+  let elapsed = start_time.elapsed();
+
+  println!("Done! Total time for {} iterations: {:.2?}", iterations, elapsed);
 }
