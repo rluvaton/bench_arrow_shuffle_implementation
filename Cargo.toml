@@ -33,3 +33,10 @@ arrow-buffer = { path="./target/patch/arrow-buffer-57.3.0" }
 name = "shuffle"
 harness = false
 required-features = []
+
+[profile.release]
+debug = true
+overflow-checks = false
+lto = "fat"
+codegen-units = 1
+strip = "debuginfo"
