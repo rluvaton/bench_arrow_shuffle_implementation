@@ -122,7 +122,7 @@ impl<T: ArrowPrimitiveType> Splitter for PrimitiveColumnSplitter<T> {
         self.nulls.add_nulls(input_column, indices);
 
         for (&partition_index, &column_value) in
-            indices.indices().iter().zip(input_column.values().iter())
+            indices.iter().zip(input_column.values().iter())
         {
             let partition = &mut self.partitions[partition_index as usize];
             partition.push(column_value);

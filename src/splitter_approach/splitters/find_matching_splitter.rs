@@ -10,6 +10,7 @@ use crate::splitter_approach::ready_partitions_sink::traits::ReadyPartitionsSink
 use crate::splitter_approach::splitters::byte_array_splitter::ByteArrayColumnSplitter;
 use crate::splitter_approach::splitters::traits::{CreateSplitterArgs, Splitter};
 use crate::splitters::struct_splitter::StructSplitter;
+use super::primitive_splitter::PrimitiveColumnSplitter;
 
 pub struct ShuffleArgs<'a> {
     pub number_of_partitions: usize,
