@@ -10,6 +10,7 @@ use rand::SeedableRng;
 use std::hint;
 use std::sync::Arc;
 use crate::generate_utils::generate_batch;
+use crate::splitters::ShuffleArgs;
 
 pub struct Generate {
   number_of_partitions: usize,
@@ -223,18 +224,18 @@ type Output = Vec<Vec<RecordBatch>>;
 
 pub fn take_to_builders_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let fields = input[0].batch.schema_ref().fields();
-  let mut partitions_sink = (0..number_of_partitions).map(|_| bench_shuffle::take::create_sinks(fields, batch_size)).collect::<Vec<_>>();
+  let mut partitions_sink = (0..number_of_partitions).map(|_| crate::take::create_sinks(fields, batch_size)).collect::<Vec<_>>();
 
   for input in input.iter() {
     for (indices, sinks) in input.indices_per_partition.iter().zip(partitions_sink.iter_mut()) {
-      bench_shuffle::take::take_to_sinks(input.batch.columns(), sinks, indices).expect("should be able to take");
+      crate::take::take_to_sinks(input.batch.columns(), sinks, indices).expect("should be able to take");
     }
   }
 
   let output = partitions_sink
     .iter_mut()
     .map(|sinks| {
-      let batch = bench_shuffle::take::finish_sinks(
+      let batch = crate::take::finish_sinks(
         fields,
         sinks,
         batch_size
@@ -253,12 +254,12 @@ pub fn take_to_builders_column_wise_approach<'a>(input: &'a [InputRef<'a>], colu
   let fields = input[0].batch.schema_ref().fields();
 
   // columns_sink[column_index][partition_index] = sink for that column in that partition
-  let mut columns_sink = fields.iter().map(|f| (0..number_of_partitions).map(|_| bench_shuffle::take::create_sink(f.as_ref(), batch_size)).collect::<Vec<_>>()).collect::<Vec<_>>();
+  let mut columns_sink = fields.iter().map(|f| (0..number_of_partitions).map(|_| crate::take::create_sink(f.as_ref(), batch_size)).collect::<Vec<_>>()).collect::<Vec<_>>();
 
   for (column_and_indices, partition_sinks) in columns_based.columns.iter().zip(columns_sink.iter_mut()) {
     for SingleColumnInput { column, indices_per_partition } in column_and_indices {
       for (indices, sink) in indices_per_partition.iter().zip(partition_sinks.iter_mut()) {
-        bench_shuffle::take::take_to_sink(column.as_ref(), sink, indices).expect("should be able to take");
+        crate::take::take_to_sink(column.as_ref(), sink, indices).expect("should be able to take");
       }
     }
   }
@@ -268,7 +269,7 @@ pub fn take_to_builders_column_wise_approach<'a>(input: &'a [InputRef<'a>], colu
 
   for (partitions, field) in columns_sink.iter_mut().zip(fields.iter()) {
     for (partition_index, sink) in partitions.iter_mut().enumerate() {
-      let column = bench_shuffle::take::finish_sink(
+      let column = crate::take::finish_sink(
         field.as_ref(),
         sink,
         batch_size
@@ -551,7 +552,7 @@ pub fn row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_s
 fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
-  let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+  let row_converter = crate::unordered_row::UnorderedRowConverter::new(
     fields.clone(),
   ).expect("should be able to create row converter");
 
@@ -591,7 +592,7 @@ fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, 
 pub fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
-  let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+  let row_converter = crate::unordered_row::UnorderedRowConverter::new(
     fields.clone(),
   ).expect("should be able to create row converter");
 
@@ -633,7 +634,7 @@ pub fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: 
 pub fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
-  let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
+  let row_converter = crate::unordered_row::UnorderedRowConverter::new(
     fields.clone(),
   ).expect("should be able to create row converter");
 
@@ -731,7 +732,7 @@ impl<'a> From<&'a SplittersInput> for SplittersInputRef<'a> {
 pub fn splitters_approach<'a>(input: &'a SplittersInputRef<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input.schema;
 
-  bench_shuffle::splitters::shuffle_by_splitters(ShuffleArgs {
+  crate::splitters::shuffle_by_splitters(ShuffleArgs {
     batch_size,
     number_of_partitions,
     schema,
