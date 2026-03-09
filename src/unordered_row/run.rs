@@ -174,7 +174,7 @@ mod tests {
         let converter = UnorderedRowConverter::new(vec![sort_field].into()).unwrap();
 
         let rows = converter
-            .convert_columns::<false>(&[Arc::new(array.clone())])
+            .convert_columns(&[Arc::new(array.clone())])
             .unwrap();
 
         let arrays = converter.convert_rows(&rows).unwrap();
@@ -325,7 +325,7 @@ mod tests {
 
         // Test that both configurations can handle simple arrays
         let rows_nulls_first = converter_nulls_first
-            .convert_columns::<false>(&[Arc::new(simple_array.clone())])
+            .convert_columns(&[Arc::new(simple_array.clone())])
             .unwrap();
         let arrays_nulls_first = converter_nulls_first
             .convert_rows(&rows_nulls_first)
@@ -336,7 +336,7 @@ mod tests {
             .unwrap();
 
         let rows_nulls_last = converter_nulls_last
-            .convert_columns::<false>(&[Arc::new(simple_array.clone())])
+            .convert_columns(&[Arc::new(simple_array.clone())])
             .unwrap();
         let arrays_nulls_last = converter_nulls_last.convert_rows(&rows_nulls_last).unwrap();
         let result_nulls_last = arrays_nulls_last[0]
@@ -369,7 +369,7 @@ mod tests {
         .unwrap();
 
         let multi_rows = multi_converter
-            .convert_columns::<false>(&[Arc::new(array.clone()), Arc::new(string_array.clone())])
+            .convert_columns(&[Arc::new(array.clone()), Arc::new(string_array.clone())])
             .unwrap();
 
         // Convert back - this will test that all rows are consumed properly
@@ -406,13 +406,13 @@ mod tests {
         .unwrap();
 
         let rows1_asc = converter_asc
-            .convert_columns::<false>(&[Arc::new(array1.clone())])
+            .convert_columns(&[Arc::new(array1.clone())])
             .unwrap();
         let rows2_asc = converter_asc
-            .convert_columns::<false>(&[Arc::new(array2.clone())])
+            .convert_columns(&[Arc::new(array2.clone())])
             .unwrap();
         let rows3_asc = converter_asc
-            .convert_columns::<false>(&[Arc::new(array3.clone())])
+            .convert_columns(&[Arc::new(array3.clone())])
             .unwrap();
 
 
@@ -428,13 +428,13 @@ mod tests {
         .unwrap();
 
         let rows1_desc = converter_desc
-            .convert_columns::<false>(&[Arc::new(array1.clone())])
+            .convert_columns(&[Arc::new(array1.clone())])
             .unwrap();
         let rows2_desc = converter_desc
-            .convert_columns::<false>(&[Arc::new(array2.clone())])
+            .convert_columns(&[Arc::new(array2.clone())])
             .unwrap();
         let rows3_desc = converter_desc
-            .convert_columns::<false>(&[Arc::new(array3.clone())])
+            .convert_columns(&[Arc::new(array3.clone())])
             .unwrap();
 
         assert_eq!(rows1_asc.iter().collect::<Vec<_>>(), rows1_desc.iter().collect::<Vec<_>>());
@@ -460,10 +460,10 @@ mod tests {
         .unwrap();
 
         let rows_nulls = converter_nulls_first
-            .convert_columns::<false>(&[Arc::new(array_with_nulls.clone())])
+            .convert_columns(&[Arc::new(array_with_nulls.clone())])
             .unwrap();
         let rows_values = converter_nulls_first
-            .convert_columns::<false>(&[Arc::new(array_with_values.clone())])
+            .convert_columns(&[Arc::new(array_with_values.clone())])
             .unwrap();
 
         // nulls should come before values when nulls_first = true
@@ -483,10 +483,10 @@ mod tests {
         .unwrap();
 
         let rows_nulls_last = converter_nulls_last
-            .convert_columns::<false>(&[Arc::new(array_with_nulls.clone())])
+            .convert_columns(&[Arc::new(array_with_nulls.clone())])
             .unwrap();
         let rows_values_last = converter_nulls_last
-            .convert_columns::<false>(&[Arc::new(array_with_values.clone())])
+            .convert_columns(&[Arc::new(array_with_values.clone())])
             .unwrap();
 
         // values should come before nulls when nulls_first = false
@@ -518,9 +518,9 @@ mod tests {
         )].into())
         .unwrap();
 
-        let rows1 = converter.convert_columns::<false>(&[Arc::new(array1)]).unwrap();
-        let rows2 = converter.convert_columns::<false>(&[Arc::new(array2)]).unwrap();
-        let rows3 = converter.convert_columns::<false>(&[Arc::new(array3)]).unwrap();
+        let rows1 = converter.convert_columns(&[Arc::new(array1)]).unwrap();
+        let rows2 = converter.convert_columns(&[Arc::new(array2)]).unwrap();
+        let rows3 = converter.convert_columns(&[Arc::new(array3)]).unwrap();
 
         // With nulls_first=true, ascending:
         // Row 0: array1[0]="apple", array2[0]=null, array3[0]="cherry" -> null < apple < cherry
@@ -556,7 +556,7 @@ mod tests {
         ), true)].into())
         .unwrap();
 
-        let rows = converter.convert_columns::<false>(&[Arc::new(array)]).unwrap();
+        let rows = converter.convert_columns(&[Arc::new(array)]).unwrap();
         assert_eq!(rows.num_rows(), 0);
 
         // Likewise converting empty rows should yield an empty RunEndEncodedArray

@@ -326,7 +326,7 @@ pub unsafe fn decode_fixed_size_list(
 
     let len = rows.len();
 
-    let null_element_encoded = converter.convert_columns::<false>(&[new_null_array(element_type, 1)])?;
+    let null_element_encoded = converter.convert_columns(&[new_null_array(element_type, 1)])?;
     let null_element_encoded = null_element_encoded.row(0);
     let null_element_slice = null_element_encoded.as_ref();
 
