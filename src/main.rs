@@ -5,7 +5,9 @@ fn main() {
   let args: Vec<String> = std::env::args().collect();
 
   if args.len() < 3 {
-    eprintln!("Usage: {} <benchmark_name> <iterations>", args[0]);
+    eprintln!("Usage: {} <benchmark_name> <iterations> [num_partitions] [num_batches]", args[0]);
+    eprintln!("  num_partitions defaults to 1000");
+    eprintln!("  num_batches defaults to 24");
     eprintln!("Available benchmarks:");
     eprintln!("  take_to_builders_approach");
     eprintln!("  take_to_builders_column_wise_approach");
@@ -23,9 +25,9 @@ fn main() {
 
   let benchmark_name = &args[1];
   let iterations: usize = args[2].parse().expect("iterations must be a valid number");
-  let number_of_partitions = 1000;
+  let number_of_partitions: usize = args.get(3).map(|s| s.parse().expect("num_partitions must be a valid number")).unwrap_or(1000);
   let batch_size = 8192;
-  let number_of_batches = 24;
+  let number_of_batches: usize = args.get(4).map(|s| s.parse().expect("num_batches must be a valid number")).unwrap_or(24);
 
   let generate = Generate::new(GenerateArgs {
     num_partitions: number_of_partitions,
@@ -53,7 +55,7 @@ fn main() {
     }
   };
 
-  println!("Running '{}' for {} iterations...", benchmark_name, iterations);
+  println!("Running '{}' for {} iterations (partitions: {}, batches: {})...", benchmark_name, iterations, number_of_partitions, number_of_batches);
 
   println!("sleeping until reached 3s since start to make sure benchmark setup is not included in the benchmark time");
 
@@ -63,6 +65,8 @@ fn main() {
   }
 
   std::thread::sleep(std::time::Duration::from_millis(3000 - elapsed.as_millis() as u64));
+
+  println!("starting benchmark");
 
   let start_time = std::time::Instant::now();
 
