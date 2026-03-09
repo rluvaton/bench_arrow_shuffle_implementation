@@ -3,7 +3,6 @@ use arrow_array::{Array, ArrayRef, RecordBatch, UInt32Array};
 use arrow_row::SortField;
 use arrow_schema::SchemaRef;
 // use arrow_row::unordered_row::UnorderedRowConverter;
-use criterion::Criterion;
 use rand::prelude::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
@@ -51,11 +50,11 @@ pub struct GenerateInputsDerived<'a> {
 
 impl<'a> From<&'a Generate> for GenerateInputsDerived<'a> {
   fn from(generate: &'a Generate) -> Self {
-    let input_columns = InputColumns::from(generate.inputs);
+    let input_columns = InputColumns::from(&generate.inputs);
     Self {
       inputs_ref: generate.inputs.iter().map(|x| x.as_ref()).collect(),
       interleave_optimized_input: InterleaveOptimizedInput::new(&generate.inputs, generate.number_of_partitions),
-      interleave_column_wise_optimized_input: InterleaveColumnWiseOptimizedInput::new(&input_columns, generate.number_of_partitions),
+      interleave_column_wise_optimized_input: InterleaveColumnWiseOptimizedInput::new(&generate.inputs, &input_columns, generate.number_of_partitions),
       splitter_args_ref:generate.splitters_input.as_ref(),
 
       input_columns,
@@ -190,7 +189,7 @@ impl<'a> From<&'a Vec<Input>> for InputColumns<'a> {
         let mut columns = vec![vec![]; number_of_columns];
 
         for column_index in 0..number_of_columns {
-          for batch in &inputs {
+          for batch in inputs {
             columns[column_index].push(SingleColumnInput {
               column: &batch.batch.column(column_index),
               indices_per_partition: &batch.indices_per_partition
@@ -426,8 +425,8 @@ pub struct InterleaveColumnWiseOptimizedInput<'a> {
 }
 
 impl<'a> InterleaveColumnWiseOptimizedInput<'a> {
-  fn new<'b>(inputs: &'b InputColumns<'a>, number_of_partitions: usize) -> Self {
-    let columns = inputs.columns.iter().map(|partitions| partitions.iter().map(|x| x.column.as_ref()).collect::<Vec<_>>()).collect::<Vec<_>>();
+  fn new<'b>(inputs: &'a Vec<Input>, input_columns: &'b InputColumns<'a>, number_of_partitions: usize) -> Self {
+    let columns = input_columns.columns.iter().map(|partitions| partitions.iter().map(|x| x.column.as_ref()).collect::<Vec<_>>()).collect::<Vec<_>>();
     let partition_indices = (0..number_of_partitions)
       .map(|partition_index| {
         let indices = inputs.iter().enumerate().flat_map(|(batch_index, input)| {
@@ -686,8 +685,8 @@ impl SplittersInput {
 }
 
 
-impl<'a> From<&'a Input> for SplittersInput {
-  fn from(inputs: &'a Input) -> Self {
+impl<'a> From<&'a Vec<Input>> for SplittersInput {
+  fn from(inputs: &'a Vec<Input>) -> Self {
     let number_of_columns = inputs[0].batch.num_columns();
     let mut columns = vec![vec![]; number_of_columns];
     let mut indices = vec![];
