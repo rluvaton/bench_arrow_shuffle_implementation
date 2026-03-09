@@ -1,6 +1,7 @@
 use bench_shuffle::bench_fns::*;
 
 fn main() {
+  let start_time = std::time::Instant::now();
   let args: Vec<String> = std::env::args().collect();
 
   if args.len() < 3 {
@@ -53,6 +54,15 @@ fn main() {
   };
 
   println!("Running '{}' for {} iterations...", benchmark_name, iterations);
+
+  println!("sleeping until reached 3s since start to make sure benchmark setup is not included in the benchmark time");
+
+  let elapsed = start_time.elapsed();
+  if elapsed.as_secs() > 3 {
+    panic!("Benchmark setup took too long: {}s", elapsed.as_secs());
+  }
+
+  std::thread::sleep(std::time::Duration::from_millis(3000 - elapsed.as_millis() as u64));
 
   for _ in 0..iterations {
     bench_fn(&generated_derive);
