@@ -13,6 +13,7 @@ use crate::generate_utils::generate_batch;
 
 pub struct Generate {
   number_of_partitions: usize,
+  batch_size: usize,
   inputs: Vec<Input>,
   splitters_input: SplittersInput,
 }
@@ -22,14 +23,14 @@ impl Generate {
     generate_args: GenerateArgs,
   ) -> Self {
     let number_of_partitions = generate_args.num_partitions;
-
-    // this will create output batches of size ~700
+    let batch_size = generate_args.num_rows;
 
     let inputs = generate_inputs(generate_args);
     Self {
       number_of_partitions,
       splitters_input: SplittersInput::from(&inputs),
       inputs,
+      batch_size,
     }
   }
 
@@ -39,6 +40,7 @@ impl Generate {
 }
 
 pub struct GenerateInputsDerived<'a> {
+  pub generate: &'a Generate,
   pub inputs_ref: Vec<InputRef<'a>>,
   pub input_columns: InputColumns<'a>,
   pub interleave_optimized_input: InterleaveOptimizedInput<'a>,
@@ -56,151 +58,63 @@ impl<'a> From<&'a Generate> for GenerateInputsDerived<'a> {
       splitter_args_ref:generate.splitters_input.as_ref(),
 
       input_columns,
+      generate,
     }
   }
 }
+pub fn take_to_builders_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = take_to_builders_approach(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-fn run_benchmark(c: &mut Criterion) {
-  let number_of_partitions = 1000;
-  let batch_size = 8192;
-  let number_of_batches = 24;
+pub fn take_to_builders_column_wise_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = take_to_builders_column_wise_approach(generated_derive.inputs_ref.as_slice(), &generated_derive.input_columns, generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  // this will create output batches of size ~700
+pub fn take_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = take_approach(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let inputs = generate_inputs(GenerateArgs {
-    num_partitions: number_of_partitions,
-    num_rows: batch_size,
-    num_batches: number_of_batches,
-    seed: 42,
-  });
+pub fn take_column_wise_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = take_column_wise_approach(generated_derive.inputs_ref.as_slice(), &generated_derive.input_columns, generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let input_columns: InputColumns = InputColumns::from(&inputs);
-  let interleave_optimized_input = InterleaveOptimizedInput::new(&inputs, number_of_partitions);
+pub fn interleave_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = interleave_approach(&generated_derive.interleave_optimized_input, generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let interleave_column_wise_optimized_input = InterleaveColumnWiseOptimizedInput::new(&input_columns, number_of_partitions);
+pub fn interleave_column_wise_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = interleave_column_wise_approach(generated_derive.inputs_ref.as_slice(), &generated_derive.interleave_column_wise_optimized_input, generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let splitter_args = SplittersInput::from(&inputs);
+pub fn row_format_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = row_format_approach(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let splitter_args_ref = SplittersInputRef::from(&splitter_args);
+pub fn row_format_approach_partition_wise_bench(generated_derive: &GenerateInputsDerived) {
+  let output = row_format_approach_partition_wise(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  let mut group = c.benchmark_group("shuffle");
+pub fn optimized_row_format_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = optimized_row_format_approach(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  //
-  // {
-  //   group.bench_function("take_to_builders_approach", |b| {
-  //     b.iter(|| {
-  //       let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
-  //
-  // {
-  //   group.bench_function("take_to_builders_column_wise_approach", |b| {
-  //     b.iter(|| {
-  //       let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
-  //
-  // {
-  //   group.bench_function("take_approach", |b| {
-  //     b.iter(|| {
-  //       let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
-  //
-  // {
-  //   group.bench_function("take_column_wise_approach", |b| {
-  //     b.iter(|| {
-  //       let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
+pub fn optimized_row_format_approach_partition_wise_bench(generated_derive: &GenerateInputsDerived) {
+  let output = optimized_row_format_approach_partition_wise(generated_derive.inputs_ref.as_slice(), generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
+}
 
-  {
-    group.bench_function("interleave_approach", |b| {
-      b.iter(|| {
-        let output = interleave_approach(&interleave_optimized_input, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("interleave_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = interleave_column_wise_approach(inputs_refs_slice, &interleave_column_wise_optimized_input, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  // {
-  //   group.bench_function("row_format_approach", |b| {
-  //     b.iter(|| {
-  //       let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
-  //
-  // {
-  //   group.bench_function("row_format_approach going partition wise", |b| {
-  //     b.iter(|| {
-  //       let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-  //       hint::black_box(output);
-  //     });
-  //   });
-  // }
-
-  // for start in 0..inputs_refs_slice[0].batch.num_columns() {
-  //   for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
-  //     let project_indices = (start..end).collect::<Vec<_>>();
-  //     let projected_batch = inputs_refs_slice[0].batch.project(&project_indices).unwrap();
-  //     println!("start: {}, end: {}", start, end);
-  //     println!("projected batch columns types: {:?}", projected_batch.schema_ref());
-  //     let input = Input {
-  //       batch: projected_batch,
-  //       partitions: inputs_refs_slice[0].partitions.to_vec(),
-  //       indices_per_partition: inputs_refs_slice[0].indices_per_partition.to_vec(),
-  //     };
-  //     let input_ref = input.as_ref();
-  //
-  //     test_combination_that_fail(&[input_ref], batch_size, number_of_partitions);
-  //   }
-  // }
-  {
-    group.bench_function("optimized_row_format_approach", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("optimized_row_format_approach going partition wise", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("splitters", |b| {
-      b.iter(|| {
-        let output = splitters_approach(&splitter_args_ref, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
+pub fn splitters_approach_bench(generated_derive: &GenerateInputsDerived) {
+  let output = splitters_approach(&generated_derive.splitter_args_ref, generated_derive.generate.batch_size, generated_derive.generate.number_of_partitions);
+  hint::black_box(output);
 }
 
 fn generate_inputs(args: GenerateArgs) -> Vec<Input> {

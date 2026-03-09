@@ -3,6 +3,13 @@ name = "bench_shuffle"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "bench_shuffle"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 arrow = {version = "57.3.0", features = ["test_utils"]}
 arrow-array = "57.3.0"
