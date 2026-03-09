@@ -13,6 +13,8 @@ use std::hint;
 use std::sync::Arc;
 use arrow_array::builder::{Int32Builder, UInt32Builder};
 use arrow_row::SortField;
+use arrow_schema::SchemaRef;
+use bench_shuffle::splitters::ShuffleArgs;
 
 fn run_benchmark(c: &mut Criterion) {
   let number_of_partitions = 1500;
@@ -81,6 +83,36 @@ fn run_benchmark(c: &mut Criterion) {
     }
   };
   let inputs_refs_slice = inputs_refs_vec.as_slice();
+
+  let splitter_args: SplittersInput = {
+    let number_of_columns = inputs[0].batch.num_columns();
+    let mut columns = vec![vec![]; number_of_columns];
+    let mut indices = vec![];
+
+    for input in &inputs {
+      indices.push(
+        input.partitions.iter().map(|partition_index| *partition_index as u32).collect::<Vec<u32>>()
+      )
+    }
+
+    for column_index in 0..number_of_columns {
+      for input in &inputs {
+        columns[column_index].push(Arc::clone(input.batch.column(column_index)))
+      }
+    }
+
+    SplittersInput {
+      schema: inputs[0].batch.schema(),
+      indices,
+      columns,
+    }
+  };
+
+  let splitter_args_ref = SplittersInputRef {
+    schema: &splitter_args.schema,
+    columns: splitter_args.columns.as_slice(),
+    indices: splitter_args.indices.as_slice()
+  };
 
   let mut group = c.benchmark_group("shuffle");
 
@@ -204,6 +236,15 @@ fn run_benchmark(c: &mut Criterion) {
     group.bench_function("optimized_row_format_approach encode multiple columns at once going partition wise", |b| {
       b.iter(|| {
         let output = optimized_row_format_approach_partition_wise::<true>(inputs_refs_slice, batch_size, number_of_partitions);
+        hint::black_box(output);
+      });
+    });
+  }
+
+  {
+    group.bench_function("splitters", |b| {
+      b.iter(|| {
+        let output = splitters_approach(&splitter_args_ref, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -702,6 +743,29 @@ fn optimized_row_format_approach_partition_wise<'a, const ENCODE_MULTI_COLUMNS_A
     }).collect::<Vec<_>>();
 
   output
+}
+
+struct SplittersInput {
+  schema: SchemaRef,
+  columns: Vec<Vec<ArrayRef>>,
+  indices: Vec<Vec<u32>>,
+}
+struct SplittersInputRef<'a> {
+  schema: &'a SchemaRef,
+  columns: &'a [Vec<ArrayRef>],
+  indices: &'a [Vec<u32>],
+}
+
+fn splitters_approach<'a>(input: &'a SplittersInputRef<'a>, batch_size: usize, number_of_partitions: usize) -> Output {
+  let schema = input.schema;
+
+  bench_shuffle::splitters::shuffle_by_splitters(ShuffleArgs {
+    batch_size,
+    number_of_partitions,
+    schema,
+    indices: input.indices,
+    columns: input.columns,
+  }).unwrap()
 }
 
 criterion_group!{

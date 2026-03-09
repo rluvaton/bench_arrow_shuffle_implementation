@@ -2427,7 +2427,7 @@ macro_rules! decode_primitive_helper {
 /// # Safety
 ///
 /// Rows must contain valid data for the provided field
-unsafe fn decode_column_four<T: ArrowPrimitiveType>(
+fn decode_column_four<T: ArrowPrimitiveType>(
     fields: &Fields,
     rows: &mut [&[u8]],
     nulls: Vec<Option<NullBuffer>>
