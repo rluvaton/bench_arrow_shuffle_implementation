@@ -691,14 +691,14 @@ impl<'a> From<&'a Vec<Input>> for SplittersInput {
     let mut columns = vec![vec![]; number_of_columns];
     let mut indices = vec![];
 
-    for input in &inputs {
+    for input in inputs {
       indices.push(
         input.partitions.iter().map(|partition_index| *partition_index as u32).collect::<Vec<u32>>()
       )
     }
 
     for column_index in 0..number_of_columns {
-      for input in &inputs {
+      for input in inputs {
         columns[column_index].push(Arc::clone(input.batch.column(column_index)))
       }
     }
