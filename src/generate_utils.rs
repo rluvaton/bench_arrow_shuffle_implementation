@@ -86,73 +86,73 @@ pub fn generate_batch(
 
     cols.push(array);
   }
-  //
-  // for nulls in [0.0, 0.1, 0.2, 0.5] {
-  //   *seed += 1;
-  //   let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
-  //     batch_size, nulls, *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //
-  //   )));
-  //
-  //   cols.push(array);
-  // }
-  //
-  // for nulls in [0.0, 0.1, 0.2, 0.5] {
-  //   *seed += 1;
-  //   let array = Arc::new(create_primitive_array_with_seed::<Int64Type>(
-  //     batch_size, nulls, *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //
-  //   )));
-  //
-  //   cols.push(array);
-  // }
 
-  // for _ in 0..30 {
-  //   let nulls = 0.3;
-  //
-  //   *seed += 1;
-  //   let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
-  //     batch_size, nulls, *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //
-  //   )));
-  //
-  //   cols.push(array);
-  // }
+  for nulls in [0.0, 0.1, 0.2, 0.5] {
+    *seed += 1;
+    let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
+      batch_size, nulls, *seed,
+    )) as ArrayRef;
 
-  // for nulls in [0.0, 0.1, 0.2, 0.5] {
-  //   *seed += 1;
-  //   let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
-  //     batch_size, nulls, 0, 50, "", *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
-  //
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+
+    )));
+
+    cols.push(array);
+  }
+
+  for nulls in [0.0, 0.1, 0.2, 0.5] {
+    *seed += 1;
+    let array = Arc::new(create_primitive_array_with_seed::<Int64Type>(
+      batch_size, nulls, *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+
+    )));
+
+    cols.push(array);
+  }
+
   for _ in 0..30 {
+    let nulls = 0.3;
+
+    *seed += 1;
+    let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
+      batch_size, nulls, *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+
+    )));
+
+    cols.push(array);
+  }
+
+  for nulls in [0.0, 0.1, 0.2, 0.5] {
+    *seed += 1;
+    let array = Arc::new(create_string_array_with_len_range_and_prefix_and_seed::<i32>(
+      batch_size, nulls, 0, 50, "", *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+
+  for _ in 0..10 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -185,7 +185,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..30 {
+  for _ in 0..10 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -202,7 +202,7 @@ pub fn generate_batch(
     cols.push(array);
   }
 
-  for _ in 0..30 {
+  for _ in 0..10 {
     let nulls = 0.0;
 
     *seed += 1;
@@ -218,50 +218,50 @@ pub fn generate_batch(
 
     cols.push(array);
   }
-  //
-  // for nulls in [0.0, 0.1, 0.2, 0.5] {
-  //   *seed += 1;
-  //   let array = Arc::new(create_boolean_array_with_seed(
-  //     batch_size, nulls, 0.5, *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
 
-  // for _ in 0..30 {
-  //   *seed += 1;
-  //   let nulls = 0.0;
-  //   let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
-  //     batch_size, nulls, *seed,
-  //   )) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
-  //
-  // for nulls in [0.0, 0.1, 0.2, 0.5] {
-  //   *seed += 1;
-  //   let array = Arc::new(create_f64_array_with_seed(batch_size, nulls, *seed)) as ArrayRef;
-  //
-  //   fields.push(Arc::new(Field::new(
-  //     format!("col_{}", cols.len()),
-  //     array.data_type().clone(),
-  //     nulls != 0.0,
-  //   )));
-  //
-  //   cols.push(array);
-  // }
+  for nulls in [0.0, 0.1, 0.2, 0.5] {
+    *seed += 1;
+    let array = Arc::new(create_boolean_array_with_seed(
+      batch_size, nulls, 0.5, *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+
+  for _ in 0..30 {
+    *seed += 1;
+    let nulls = 0.0;
+    let array = Arc::new(create_primitive_array_with_seed::<Int32Type>(
+      batch_size, nulls, *seed,
+    )) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
+
+  for nulls in [0.0, 0.1, 0.2, 0.5] {
+    *seed += 1;
+    let array = Arc::new(create_f64_array_with_seed(batch_size, nulls, *seed)) as ArrayRef;
+
+    fields.push(Arc::new(Field::new(
+      format!("col_{}", cols.len()),
+      array.data_type().clone(),
+      nulls != 0.0,
+    )));
+
+    cols.push(array);
+  }
 
   let schema = Arc::new(Schema::new(fields));
 
