@@ -229,9 +229,9 @@ impl<T: ByteArrayType> ByteArrayColumnSplitter<T> {
                 partition.2.append(is_valid);
             }
 
-            if self.array_length(partition_index as usize) >= self.max_array_length {
-                self.finish_in_progress(partition_index as usize, ready_partitions_sink)?;
-            }
+            // if self.array_length(partition_index as usize) >= self.max_array_length {
+            //     self.finish_in_progress(partition_index as usize, ready_partitions_sink)?;
+            // }
         }
 
         Ok(())
