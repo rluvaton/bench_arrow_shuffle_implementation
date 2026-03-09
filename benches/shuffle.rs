@@ -116,42 +116,42 @@ fn run_benchmark(c: &mut Criterion) {
 
   let mut group = c.benchmark_group("shuffle");
 
-  
-  {
-    group.bench_function("take_to_builders_approach", |b| {
-      b.iter(|| {
-        let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-  
-  {
-    group.bench_function("take_to_builders_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-  
-  {
-    group.bench_function("take_approach", |b| {
-      b.iter(|| {
-        let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-  
-  {
-    group.bench_function("take_column_wise_approach", |b| {
-      b.iter(|| {
-        let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
+  //
+  // {
+  //   group.bench_function("take_to_builders_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_to_builders_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_to_builders_column_wise_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_to_builders_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("take_column_wise_approach", |b| {
+  //     b.iter(|| {
+  //       let output = take_column_wise_approach(inputs_refs_slice, &input_columns, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
   
   {
     group.bench_function("interleave_approach", |b| {
@@ -171,23 +171,23 @@ fn run_benchmark(c: &mut Criterion) {
     });
   }
   
-  {
-    group.bench_function("row_format_approach", |b| {
-      b.iter(|| {
-        let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-  
-  {
-    group.bench_function("row_format_approach going partition wise", |b| {
-      b.iter(|| {
-        let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
+  // {
+  //   group.bench_function("row_format_approach", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
+  //
+  // {
+  //   group.bench_function("row_format_approach going partition wise", |b| {
+  //     b.iter(|| {
+  //       let output = row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
+  //       hint::black_box(output);
+  //     });
+  //   });
+  // }
 
   // for start in 0..inputs_refs_slice[0].batch.num_columns() {
   //   for end in (start + 1)..=inputs_refs_slice[0].batch.num_columns() {
