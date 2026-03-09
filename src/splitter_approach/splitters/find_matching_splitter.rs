@@ -9,6 +9,7 @@ use crate::splitter_approach::ready_partitions_sink::shuffle_encoded_sink::Shuff
 use crate::splitter_approach::ready_partitions_sink::traits::ReadyPartitionsSink;
 use crate::splitter_approach::splitters::byte_array_splitter::ByteArrayColumnSplitter;
 use crate::splitter_approach::splitters::traits::{CreateSplitterArgs, Splitter};
+use crate::splitters::struct_splitter::StructSplitter;
 
 pub struct ShuffleArgs<'a> {
     pub number_of_partitions: usize,
@@ -67,23 +68,44 @@ pub(crate) struct FillSingleSplitterArgs<'a> {
     pub(crate) indices: &'a [Vec<u32>],
 }
 
-/// Fill all data for a single column in all partitions into the [`FillSingleSplitterArgs::ready_partitions_sink`] provided in the args
-pub(crate) fn fill_all_data_for_single_column_in_all_partitions(
-    args: FillSingleSplitterArgs<'_>,
-) -> Result<(), ArrowError> {
-    match args.field.data_type() {
+
+trait SplitterDispatcher {
+    type ReturnType: Sized;
+
+    fn dispatch<S: Splitter + 'static>(self, s: S) -> Result<Self::ReturnType, ArrowError>;
+}
+
+fn create_and_dispatch<D: SplitterDispatcher>(
+    dispatcher: D,
+    args: CreateSplitterArgs<'_>,
+) -> Result<D::ReturnType, ArrowError> {
+    let data_type = args.field.data_type();
+
+    macro_rules! primitive_size_helper {
+        ($t:ty) => {
+            dispatcher.dispatch(PrimitiveColumnSplitter::<$t>::new(args))
+        };
+    }
+
+    downcast_primitive! {
+        data_type => (primitive_size_helper),
         DataType::Utf8 => {
-            inner_fill_all_data_for_single_column_in_all_partitions::<ByteArrayColumnSplitter<GenericStringType<i32>>>(args)
+            dispatcher.dispatch(ByteArrayColumnSplitter::<GenericStringType<i32>>::new(args))
         },
         DataType::LargeUtf8 => {
-            inner_fill_all_data_for_single_column_in_all_partitions::<ByteArrayColumnSplitter<GenericStringType<i64>>>(args)
+            dispatcher.dispatch(ByteArrayColumnSplitter::<GenericStringType<i64>>::new(args))
         },
         DataType::Binary => {
-            inner_fill_all_data_for_single_column_in_all_partitions::<ByteArrayColumnSplitter<GenericBinaryType<i32>>>(args)
+            dispatcher.dispatch(ByteArrayColumnSplitter::<GenericBinaryType<i32>>::new(args))
         },
         DataType::LargeBinary => {
-            inner_fill_all_data_for_single_column_in_all_partitions::<ByteArrayColumnSplitter<GenericBinaryType<i64>>>(args)
+            dispatcher.dispatch(ByteArrayColumnSplitter::<GenericBinaryType<i64>>::new(args))
         },
+
+        DataType::Struct(fields) if !fields.is_empty() => {
+            dispatcher.dispatch(StructSplitter::new(args))
+        },
+
         dt => Err(ArrowError::InvalidArgumentError(format!(
             "Unsupported data type {:?} for column {}",
             dt, args.column_index
@@ -91,23 +113,76 @@ pub(crate) fn fill_all_data_for_single_column_in_all_partitions(
     }
 }
 
-fn inner_fill_all_data_for_single_column_in_all_partitions<S: Splitter>(args: FillSingleSplitterArgs<'_>) -> Result<(), ArrowError> {
-    let mut splitter = S::new(CreateSplitterArgs {
-        batch_size: args.batch_size,
-        field: args.field,
-        column_index: args.column_index,
-        number_of_partitions: args.number_of_partitions,
-    });
-    for (column, indices) in args
-      .column_in_all_batches
-      .iter()
-      .zip(args.indices.iter())
-    {
-        // Add the column to the splitter
-        splitter.add_values(column, indices.as_slice(), args.ready_partitions_sink)?;
+/// Create a specialized splitter based on the field data type and nullability.
+/// TODO - remove once we use it in the StructSplitter
+#[allow(dead_code)]
+pub(crate) fn create_splitter(
+    column_index: usize,
+    field: &FieldRef,
+    batch_size: usize,
+    number_of_partitions: usize,
+) -> Result<Box<dyn Splitter>, ArrowError> {
+    struct AsDynDispatcher;
+
+    impl SplitterDispatcher for AsDynDispatcher {
+        type ReturnType = Box<dyn Splitter>;
+
+        fn dispatch<S: Splitter + 'static>(self, s: S) -> Result<Self::ReturnType, ArrowError> {
+            Ok(Box::new(s))
+        }
     }
 
-    splitter.finish(args.ready_partitions_sink)?;
+    create_and_dispatch(
+        AsDynDispatcher,
+        CreateSplitterArgs {
+            batch_size,
+            number_of_partitions,
+            field,
+            column_index,
+        },
+    )
+}
 
-    Ok(())
+/// Fill all data for a single column in all partitions into the [`FillSingleSplitterArgs::ready_partitions_sink`] provided in the args
+pub(crate) fn fill_all_data_for_single_column_in_all_partitions(
+    args: FillSingleSplitterArgs<'_>,
+) -> Result<(), ArrowError> {
+    struct AddDispatcher<'a> {
+        column_in_all_batches: &'a [ArrayRef],
+        ready_partitions_sink: &'a mut dyn ReadyPartitionsSink,
+        indices: &'a [Vec<u32>],
+    }
+
+    impl<'a> SplitterDispatcher for AddDispatcher<'a> {
+        type ReturnType = ();
+
+        fn dispatch<S: Splitter + 'static>(self, mut splitter: S) -> Result<Self::ReturnType, ArrowError> {
+            for (column, indices) in self
+              .column_in_all_batches
+              .into_iter()
+              .zip(self.indices.iter())
+            {
+                // Add the column to the splitter
+                splitter.add_values(&column, indices.as_ref(), self.ready_partitions_sink)?;
+            }
+
+            splitter.finish(self.ready_partitions_sink)?;
+
+            Ok(())
+        }
+    }
+
+    create_and_dispatch(
+        AddDispatcher {
+            column_in_all_batches: args.column_in_all_batches,
+            ready_partitions_sink: args.ready_partitions_sink,
+            indices: args.indices,
+        },
+        CreateSplitterArgs {
+            batch_size: args.batch_size,
+            number_of_partitions: args.number_of_partitions,
+            field: args.field,
+            column_index: args.column_index,
+        },
+    )
 }
