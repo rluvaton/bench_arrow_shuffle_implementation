@@ -17,9 +17,9 @@ use arrow_schema::SchemaRef;
 use bench_shuffle::splitters::ShuffleArgs;
 
 fn run_benchmark(c: &mut Criterion) {
-  let number_of_partitions = 1500;
+  let number_of_partitions = 1000;
   let batch_size = 8192;
-  let number_of_batches = 128;
+  let number_of_batches = 24;
 
   // this will create output batches of size ~700
 
@@ -208,7 +208,7 @@ fn run_benchmark(c: &mut Criterion) {
   {
     group.bench_function("optimized_row_format_approach", |b| {
       b.iter(|| {
-        let output = optimized_row_format_approach::<false>(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = optimized_row_format_approach(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -217,25 +217,7 @@ fn run_benchmark(c: &mut Criterion) {
   {
     group.bench_function("optimized_row_format_approach going partition wise", |b| {
       b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise::<false>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("optimized_row_format_approach encode multiple columns at once", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach::<true>(inputs_refs_slice, batch_size, number_of_partitions);
-        hint::black_box(output);
-      });
-    });
-  }
-
-  {
-    group.bench_function("optimized_row_format_approach encode multiple columns at once going partition wise", |b| {
-      b.iter(|| {
-        let output = optimized_row_format_approach_partition_wise::<true>(inputs_refs_slice, batch_size, number_of_partitions);
+        let output = optimized_row_format_approach_partition_wise(inputs_refs_slice, batch_size, number_of_partitions);
         hint::black_box(output);
       });
     });
@@ -634,7 +616,7 @@ fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, 
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns::<false>(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (index, partition) in input.partitions.iter().enumerate() {
@@ -661,7 +643,7 @@ fn test_combination_that_fail<'a>(input: &'a [InputRef<'a>], batch_size: usize, 
 }
 
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have
-fn optimized_row_format_approach<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
+fn optimized_row_format_approach<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
   let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
@@ -674,7 +656,7 @@ fn optimized_row_format_approach<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(i
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns::<ENCODE_MULTI_COLUMNS_AT_ONCE>(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (index, partition) in input.partitions.iter().enumerate() {
@@ -703,7 +685,7 @@ fn optimized_row_format_approach<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(i
 
 
 /// NOTE: in real life we encode data as soon as we get it and save the rows and we don't have
-fn optimized_row_format_approach_partition_wise<'a, const ENCODE_MULTI_COLUMNS_AT_ONCE: bool>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
+fn optimized_row_format_approach_partition_wise<'a>(input: &'a [InputRef<'a>], batch_size: usize, number_of_partitions: usize) -> Output {
   let schema = input[0].batch.schema_ref();
   let fields = schema.fields();
   let row_converter = bench_shuffle::unordered_row::UnorderedRowConverter::new(
@@ -716,7 +698,7 @@ fn optimized_row_format_approach_partition_wise<'a, const ENCODE_MULTI_COLUMNS_A
   ).collect::<Vec<_>>();
 
   for input in input.iter() {
-    let rows = row_converter.convert_columns::<ENCODE_MULTI_COLUMNS_AT_ONCE>(input.batch.columns()).expect("should be able to convert");
+    let rows = row_converter.convert_columns(input.batch.columns()).expect("should be able to convert");
 
     // TODO - reserve for each partition
     for (indices, partition) in input.indices_per_partition.iter().zip(partitions_sink.iter_mut()) {
